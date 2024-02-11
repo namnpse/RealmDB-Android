@@ -1,4 +1,4 @@
-package com.namnp.realmandroid.ui.theme
+package com.namnp.realmandroid.presentation.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

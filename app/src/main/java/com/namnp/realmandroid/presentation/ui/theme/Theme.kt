@@ -1,4 +1,4 @@
-package com.namnp.realmandroid.ui.theme
+package com.namnp.realmandroid.presentation.ui.theme
 
 import android.app.Activity
 import android.os.Build
