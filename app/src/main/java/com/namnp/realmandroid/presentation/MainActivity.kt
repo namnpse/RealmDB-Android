@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.namnp.realmandroid.presentation.ui.theme.RealmAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -44,7 +45,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val courses by viewModel.courses.collectAsState()
+                    // replace collectAsState by collectAsStateWithLifecycle
+                    val courses by viewModel.courses.collectAsStateWithLifecycle()
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize(),
@@ -62,7 +64,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    if(viewModel.courseDetails != null) {
+                    viewModel.selectedCourse?.let {
                         Dialog(onDismissRequest = viewModel::hideCourseDetails) {
                             Column(
                                 modifier = Modifier
@@ -71,7 +73,7 @@ class MainActivity : ComponentActivity() {
                                     .background(MaterialTheme.colorScheme.surface)
                                     .padding(16.dp)
                             ) {
-                                viewModel.courseDetails?.teacher?.address?.let { address ->
+                                viewModel.selectedCourse?.teacher?.address?.let { address ->
                                     Text(text = address.fullName)
                                     Text(text = address.street + " " + address.houseNumber)
                                     Text(text = address.zip.toString() + " " + address.city)
