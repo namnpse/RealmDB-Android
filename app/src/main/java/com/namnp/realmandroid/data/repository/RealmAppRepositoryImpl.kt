@@ -10,26 +10,121 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import io.realm.kotlin.ext.query
 import io.realm.kotlin.ext.realmListOf
+import io.realm.kotlin.notifications.ResultsChange
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 class RealmAppRepositoryImpl @Inject constructor(
     private val realm: Realm,
 ) : RealmAppRepository {
 
-    override fun getCourses(): Flow<List<Course>> {
+    override fun getAllCourses(): Flow<List<Course>> {
         return realm
             .query<Course>()
+            .limit(20)
+            .asFlow()
+            .map {
+                it.list.toList()
+            }
+            .flowOn(Dispatchers.IO)
+            .catch { exception -> // Executes in the consumer's context
+//                emit()
+            }
+    }
+
+    override fun getRealmCourses(): Flow<ResultsChange<Course>> {
+        return realm
+            .query<Course>()
+            .limit(20)
+            .asFlow()
+            .flowOn(Dispatchers.IO)
+    }
+
+    override suspend fun findAllCoursesWithoutUsingFlow(): List<Course> {
+        return realm
+            .query<Course>()
+            .limit(20)
+            .find()
+            .map { it } // map RealmResults<Course> to List<Course>
+    }
+
+    override suspend fun deleteCourse(course: Course) {
+        realm.write {
+            // avoid race condition, when delete the same course before
+            // need to find before delete to avoid race condition (delete an already deleted record)
+            val latestCourse = findLatest(course) ?: return@write
+            delete(latestCourse)
+        }
+    }
+
+    override fun getCoursesByEnrolledStudentName(studentName: String): Flow<List<Course>> {
+        return realm
+            .query<Course>(
+                "enrolledStudents.name == $0",
+                studentName,
+            )
+            .asFlow()
+            .map {
+                it.list.toList()
+            }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun getCoursesEnrolledByManyStudents(numbersOfStudents: Int): Flow<List<Course>> {
+        return realm
+            .query<Course>(
+                "enrolledStudents.@count >= $0",
+                numbersOfStudents,
+            )
+            .asFlow()
+            .map {
+                it.list.toList()
+            }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun getCoursesByTeacher(teacher: Teacher): Flow<List<Course>> {
+        return realm
+            .query<Course>(
+                "teacher.address.fullName CONTAINS $0",
+                teacher.address?.fullName ?: "",
+            )
+            .asFlow()
+            .map {
+                it.list.toList()
+            }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun getCoursesWithName(courseName: String): Flow<List<Course>> {
+        return realm
+            .query<Course>(
+                "name BEGINSWITH $0",
+                courseName,
+            )
+            .asFlow()
+            .map {
+                it.list.toList()
+            }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun getAllAvailableCourses(): Flow<List<Course>> {
+        return realm
+            .query<Course>("isAvailable == true")
             .asFlow()
             .map {
                 it.list.toList()
             }
     }
 
-    override suspend fun deleteCourse(course: Course) {
-        realm.write {
-            // avoid race condition, when delete the same course before
-            val latestCourse = findLatest(course) ?: return@write
-            delete(latestCourse)
+    override suspend fun updateCourseAvailability(course: Course, isAvailable: Boolean) {
+        // Modify the Realm file while blocking the calling thread until the transaction is done
+        realm.writeBlocking {
+            // avoid race condition, when updating an already deleted course
+            findLatest(course)?.isAvailable = isAvailable
         }
     }
 
@@ -99,6 +194,10 @@ class RealmAppRepositoryImpl @Inject constructor(
             copyToRealm(student1, updatePolicy = UpdatePolicy.ALL)
             copyToRealm(student2, updatePolicy = UpdatePolicy.ALL)
         }
+    }
+
+    override fun closeRealm() {
+        realm.close()
     }
 
 }

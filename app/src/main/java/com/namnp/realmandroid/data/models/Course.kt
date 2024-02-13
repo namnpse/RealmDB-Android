@@ -12,4 +12,5 @@ class Course: RealmObject {
     var name: String = ""
     var teacher: Teacher? = null
     var enrolledStudents: RealmList<Student> = realmListOf()
+    var isAvailable: Boolean = true
 }
